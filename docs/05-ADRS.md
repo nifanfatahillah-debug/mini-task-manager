@@ -39,3 +39,10 @@
 - Konteks: Dinilai kejelasan, bukan jumlah fitur. "No overengineering".
 - Keputusan: Express polos + React polos + fetch.
 - Konsekuensi: Jika membesar → refactor pertama adalah persistence (lihat README).
+
+## ADR-007: Kanban kolom + tombol, tanpa drag-and-drop
+- Status: Accepted
+- Konteks: UI list polos kurang familiar; opsi kanban ala Trello dipertimbangkan.
+- Keputusan: 4 kolom grid CSS (`STATUS_ORDER.map` + filter `byStatus()`), perpindahan kolom terjadi otomatis setelah PUT sukses. Tidak ada library DnD, tidak ada drop handler.
+- Alternatif: drag-and-drop (`@dnd-kit`/sejenis) — ditolak karena: (a) explicit "no overengineering" di soal; (b) alur linear 1-langkah membuat drop bebas justru butuh penjelasan penolakan tambahan; (c) menambah state drag + optimistik update yang rawan inkonsistensi tampilan vs server.
+- Konsekuensi: API dan backend tidak berubah sama sekali; grouping murni presentasi sehingga cerita interview tetap 1 kalimat: "frontend cuma mengelompokkan, kebenaran tetap di backend".

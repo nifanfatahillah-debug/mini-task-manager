@@ -26,7 +26,7 @@ Buka `http://localhost:5173`. Data tersimpan di `server/db.json` (dibuat otomati
 React (client/) ──REST JSON──▶ Express (server/) ──▶ db.json
 ```
 
-- `client/src/api.ts` satu-satunya tempat HTTP; `App.tsx` hanya UI.
+- `client/src/api.ts` satu-satunya tempat HTTP; `App.tsx` hanya UI: papan kanban 4 kolom (posisi kartu = status, pindah otomatis setelah PUT sukses) + riwayat log expandable per kartu.
 - `server/src/routes.ts` berisi 5 endpoint + semua validasi domain; `store.ts` satu-satunya penulis `db.json` (tulis sinkron, jadi status task dan log tidak pernah out-of-sync).
 - Status hanya maju 1 langkah: `to_do → pending → in_progress → done`. Detail: `docs/02-ARCHITECTURE.md`, kontrak API: `docs/03-API-CONTRACT.md`.
 
@@ -45,6 +45,7 @@ React (client/) ──REST JSON──▶ Express (server/) ──▶ db.json
 | JSON file, bukan DB | 0 setup, reviewer jalan < 5 menit | Tidak tahan concurrent write |
 | Tulis sinkron (`writeFileSync`) | Konsistensi task↔log terjamin tanpa lock | Block event loop ~ms, tak cocok skala besar |
 | Idempotent via early-return, bukan Idempotency-Key | Cukup untuk domain 4 status | Didokumentasikan sebagai batasan sadar |
+| Kanban kolom + tombol, tanpa drag-and-drop | Familiar ala Trello tanpa library & edge case baru | Sengaja ditolak; lihat ADR-007 |
 | Tanpa ORM/auth/test-framework | Domain kecil; explicit code lebih mudah dijelaskan | Validasi ditulis manual |
 
 ## Jika Ada Waktu Lebih

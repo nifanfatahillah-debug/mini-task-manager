@@ -17,10 +17,10 @@ Kenapa tidak dipisah repo? Biar reviewer clone 1x, jalan 2 perintah, selesai < 5
 ## 2. Component Breakdown
 
 ### 2.1 client/ (presentation layer)
-- `src/App.tsx` — composition root: actor selector + task list + modal log.
+- `src/App.tsx` — composition root: actor selector + form create + **papan kanban 4 kolom** (satu kolom per status, dikelompokkan client-side via `byStatus()`) + riwayat log expandable per kartu.
 - `src/api.ts` — satu-satunya tempat `fetch()` ke backend. Semua URL di sini.
 - `src/types.ts` — tipe TS yang mirror backend (Task, AuditLog, Status).
-- Tidak ada business logic status di sini selain menampilkan "tombol next yang valid" untuk UX. Kebenaran tetap di backend.
+- Tidak ada business logic status di sini selain menampilkan "tombol next yang valid" untuk UX. Pengelompokan kolom murni fungsi tampilan dari array task yang sama — **tanpa drag-and-drop** (lihat ADR-007). Kebenaran tetap di backend.
 
 ### 2.2 server/ (domain + persistence)
 ```

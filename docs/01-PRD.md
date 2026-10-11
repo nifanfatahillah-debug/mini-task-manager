@@ -30,6 +30,7 @@ Dampak: miskomunikasi, duplikasi kerja, tidak ada akuntabilitas.
 - NO auth / login / role / permission.
 - NO real-time collaboration, notifikasi, komentar, attachment.
 - NO database server (cukup file JSON — sesuai syarat).
+- NO drag-and-drop (kanban berpindah otomatis via tombol; lihat ADR-007).
 - NO UI kompleks / design system.
 
 ## 4. Users
@@ -53,12 +54,14 @@ AC:
 
 *Keputusan didokumentasikan di ADRs — bisa diubah ke "log CREATE" tanpa merusak desain.
 
-### US-2 — List tasks
-> Sebagai user, aku bisa melihat semua task dengan status yang jelas.
+### US-2 — List tasks (kanban board)
+> Sebagai user, aku bisa melihat semua task dalam papan kanban 4 kolom (`To Do | Pending | In Progress | Done`) sehingga posisi task = statusnya.
 
 AC:
-- [ ] List menampilkan title, status badge, created/updated time, actor terakhir.
-- [ ] Urutan: terbaru dulu (atau by updatedAt desc).
+- [ ] 4 kolom sesuai `STATUS_ORDER`, tiap kolom menampilkan counter jumlah task.
+- [ ] Tiap kartu menampilkan title, description (jika ada), dan tombol aksi.
+- [ ] Task otomatis pindah kolom setelah status berubah (tanpa refresh manual).
+- [ ] Kolom kosong menampilkan tulisan "Empty".
 
 ### US-3 — Update status (core)
 > Sebagai user, aku bisa memajukan status mengikuti urutan `to_do → pending → in_progress → done`.

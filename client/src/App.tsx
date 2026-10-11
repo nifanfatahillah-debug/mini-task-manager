@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "./api";
-import { ACTORS, nextStatus, type AuditLog, type Task } from "./types";
+import { ACTORS, STATUS_ORDER, nextStatus, type AuditLog, type Task } from "./types";
 
 const STATUS_LABEL: Record<Task["status"], string> = {
   to_do: "To Do",
@@ -70,8 +70,12 @@ export default function App() {
     }
   };
 
+  // Kanban grouping: same task array, grouped client-side by status.
+  // No API change — backend still owns the transition rules.
+  const byStatus = (s: Task["status"]) => tasks.filter((t) => t.status === s);
+
   return (
-    <div style={{ fontFamily: "system-ui, sans-serif", maxWidth: 720, margin: "0 auto", padding: 24 }}>
+    <div style={{ fontFamily: "system-ui, sans-serif", maxWidth: 1100, margin: "0 auto", padding: 24 }}>
       <h1>Mini Task Manager</h1>
 
       <label>
@@ -103,45 +107,67 @@ export default function App() {
         <button onClick={create}>Add</button>
       </section>
 
-      <ul style={{ listStyle: "none", padding: 0, marginTop: 16 }}>
-        {tasks.map((t) => {
-          const next = nextStatus(t.status);
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+          gap: 12,
+          marginTop: 16,
+          alignItems: "start",
+        }}
+      >
+        {STATUS_ORDER.map((s) => {
+          const items = byStatus(s);
           return (
-            <li key={t.id} style={{ border: "1px solid #ddd", borderRadius: 8, padding: 12, marginBottom: 8 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <strong>{t.title}</strong>
-                <span style={{ background: "#eef", borderRadius: 12, padding: "2px 10px" }}>
-                  {STATUS_LABEL[t.status]}
+            <section
+              key={s}
+              style={{ background: "#f4f5f7", borderRadius: 10, padding: 10, minHeight: 200 }}
+            >
+              <header style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                <strong>{STATUS_LABEL[s]}</strong>
+                <span style={{ background: "#dde", borderRadius: 10, padding: "0 8px" }}>
+                  {items.length}
                 </span>
-              </div>
-              {t.description && <p style={{ margin: "4px 0", color: "#555" }}>{t.description}</p>}
-              <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                {next && (
-                  <button onClick={() => advance(t)}>
-                    Move to {STATUS_LABEL[next]}
-                  </button>
-                )}
-                <button onClick={() => (openId === t.id ? setOpenId(null) : openLogs(t))}>
-                  {openId === t.id ? "Hide history" : "View history"}
-                </button>
-                <button onClick={() => remove(t)}>Delete</button>
-              </div>
-              {openId === t.id && (
-                <ol style={{ marginTop: 8, paddingLeft: 20 }}>
-                  {logs.length === 0 && <li>No changes yet.</li>}
-                  {logs.map((l) => (
-                    <li key={l.id}>
-                      User &quot;{l.actor}&quot; changed Task &quot;{t.title}&quot; status from &quot;
-                      {l.fromStatus}&quot; to &quot;{l.toStatus}&quot; at{" "}
-                      {new Date(l.timestamp).toLocaleString()}
-                    </li>
-                  ))}
-                </ol>
-              )}
-            </li>
+              </header>
+              {items.length === 0 && <p style={{ color: "#888", fontSize: 13 }}>Empty</p>}
+              {items.map((t) => {
+                const next = nextStatus(t.status);
+                return (
+                  <article
+                    key={t.id}
+                    style={{ background: "#fff", border: "1px solid #ddd", borderRadius: 8, padding: 10, marginBottom: 8 }}
+                  >
+                    <strong>{t.title}</strong>
+                    {t.description && <p style={{ margin: "4px 0", color: "#555", fontSize: 13 }}>{t.description}</p>}
+                    <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+                      {next && (
+                        <button onClick={() => advance(t)}>
+                          Move to {STATUS_LABEL[next]}
+                        </button>
+                      )}
+                      <button onClick={() => (openId === t.id ? setOpenId(null) : openLogs(t))}>
+                        {openId === t.id ? "Hide history" : "View history"}
+                      </button>
+                      <button onClick={() => remove(t)}>Delete</button>
+                    </div>
+                    {openId === t.id && (
+                      <ol style={{ marginTop: 8, paddingLeft: 18, fontSize: 13 }}>
+                        {logs.length === 0 && <li>No changes yet.</li>}
+                        {logs.map((l) => (
+                          <li key={l.id} style={{ marginBottom: 4 }}>
+                            User &quot;{l.actor}&quot; changed status from &quot;{l.fromStatus}&quot;
+                            to &quot;{l.toStatus}&quot; at {new Date(l.timestamp).toLocaleString()}
+                          </li>
+                        ))}
+                      </ol>
+                    )}
+                  </article>
+                );
+              })}
+            </section>
           );
         })}
-      </ul>
+      </div>
       {tasks.length === 0 && <p>No tasks yet — create one above.</p>}
     </div>
   );

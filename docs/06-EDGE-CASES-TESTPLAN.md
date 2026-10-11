@@ -21,13 +21,13 @@
 
 ```
 1. GET /tasks → [] (kosong)
-2. POST /tasks {title:"Prepare Invoice"} → 201, status to_do
+2. POST /tasks {title:"Prepare Invoice"} → 201, kartu muncul di kolom To Do
 3. PUT /tasks/:id/status {toStatus:"done"} → 400 (lompat, benar)
-4. PUT {toStatus:"pending", actor:"john.doe"} → 200 + 1 log
+4. PUT {toStatus:"pending", actor:"john.doe"} → 200 + 1 log; kartu pindah ke kolom Pending
 5. PUT sama lagi {toStatus:"pending"} → 200 idempotent, log tetap 1
-6. PUT {toStatus:"in_progress", actor:"jane.smith"} → 200, log ke-2
-7. GET /tasks/:id/audit-logs → 2 log, urut kronologis
-8. Refresh UI → data tetap ada
+6. PUT {toStatus:"in_progress", actor:"jane.smith"} → 200, log ke-2; kartu pindah kolom
+7. GET /tasks/:id/audit-logs → 2 log, urut kronologis; klik "View history" di kartu → sama
+8. Refresh UI → data + posisi kolom tetap ada
 ```
 
 ## 3. Verifikasi Konsistensi (checklist sebelum submit)
