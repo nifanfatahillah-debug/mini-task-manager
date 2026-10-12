@@ -1,74 +1,204 @@
-# Mini Task Manager — Qonflo AI Take-Home (Full Stack: React + Express)
+# Mini Task Manager — Qonflo AI Take-Home
 
-Aplikasi internal sederhana untuk mengelola task + **audit log yang immutable** untuk setiap perubahan status.
+Internal task board with an **immutable, chronological audit log** for every status change.
+Full-stack TypeScript: React (Vite) + Express, JSON-file persistence. No auth, no overengineering.
 
-## Cara Menjalankan
+## Features (mapped to the brief)
 
-Butuh: Node.js 18+.
+- [x] **Tasks** — create, list, update status, delete
+- [x] **Strict status flow** — `to_do → pending → in_progress → done`, exactly one step forward enforced in the backend
+- [x] **Audit log per task** — who (`actor` from a hardcoded dropdown), from → to, server timestamp, chronological order
+- [x] **Immutable log** — no update/delete endpoint for logs; append-only store
+- [x] **Idempotent update** — same-status PUT returns 200 with no new log
+- [x] **Consistent** — status change + log append + file write happen in one synchronous step
+- [x] **Persistent** — `server/db.json` (auto-created, git-ignored)
+- [x] **Kanban UI** — 4 columns, cards move automatically, expandable history per card
+
+## Tech stack
+
+| Layer | Tech |
+|---|---|
+| Frontend | React 18 + TypeScript + Vite |
+| Backend | Node.js + Express 4 + TypeScript (`tsx` for dev) |
+| Persistence | `server/db.json` (single-writer, sync write) |
+
+## Project structure
+
+```
+.
+├── client/                 # React + TS (Vite, port 5173)
+│   └── src/
+│       ├── App.tsx         # kanban board + all UI actions
+│       ├── api.ts          # the ONLY place that calls the backend
+│       ├── types.ts        # mirrors server domain types
+│       └── main.tsx        # React mount point
+├── server/                 # Express + TS (port 3001)
+│   └── src/
+│       ├── index.ts        # bootstrap: CORS, JSON, routes, listen
+│       ├── routes.ts       # 5 endpoints + all domain validation
+│       ├── store.ts        # the ONLY reader/writer of db.json
+│       └── types.ts        # Status, Task, AuditLog, transition helpers
+├── docs/                   # PRD, architecture, API contract, ADRs, test plan
+└── README.md
+```
+
+## Prerequisites
+
+- **Node.js 18+** (`node -v` to check)
+- **npm** (comes with Node)
+- No database, no env file, no other setup.
+
+## Quick start
 
 ```bash
-# Terminal 1 — backend (http://localhost:3001)
+# 1. Backend — http://localhost:3001
 cd server
 npm install
-npm run dev
+npm run dev        # tsx watch mode; leaves db.json in server/
 
-# Terminal 2 — frontend (http://localhost:5173)
+# 2. Frontend — open a SECOND terminal
 cd client
 npm install
-npm run dev
+npm run dev        # Vite dev server
 ```
 
-Buka `http://localhost:5173`. Data tersimpan di `server/db.json` (dibuat otomatis, tidak di-commit).
+Open **http://localhost:5173** (or http://127.0.0.1:5173 — both are CORS-allowed).
+Create a task → it lands in **To Do** → **Move to Pending** → **View history** to see the audit entry.
 
-## Arsitektur Singkat
+> `server/db.json` is created automatically on first run and is git-ignored, so every clone starts empty.
 
-```
-React (client/) ──REST JSON──▶ Express (server/) ──▶ db.json
-```
+## Scripts
 
-- `client/src/api.ts` satu-satunya tempat HTTP; `App.tsx` hanya UI: papan kanban 4 kolom (posisi kartu = status, pindah otomatis setelah PUT sukses) + riwayat log expandable per kartu.
-- `server/src/routes.ts` berisi 5 endpoint + semua validasi domain; `store.ts` satu-satunya penulis `db.json` (tulis sinkron, jadi status task dan log tidak pernah out-of-sync).
-- Status hanya maju 1 langkah: `to_do → pending → in_progress → done`. Detail: `docs/02-ARCHITECTURE.md`, kontrak API: `docs/03-API-CONTRACT.md`.
-
-## Asumsi
-
-1. **Create tidak menulis log** — yang di-log hanya perubahan status (lihat ADR-002).
-2. **Delete task me-retain log** secara fisik di file, tapi tidak diekspos via API (ADR-003).
-3. **Actor = dropdown hardcoded** (`john.doe`, `jane.smith`, `admin`), bukan auth — sesuai "no overengineering".
-4. **Timestamp selalu dari server** (ISO UTC); client tidak boleh mengirim timestamp agar urutan log tidak bisa dipalsukan.
-5. **Single-user/demo** — file JSON cukup karena syarat membolehkan.
-
-## Trade-off
-
-| Keputusan | Kenapa | Konsekuensi |
+| Where | Command | What it does |
 |---|---|---|
-| JSON file, bukan DB | 0 setup, reviewer jalan < 5 menit | Tidak tahan concurrent write |
-| Tulis sinkron (`writeFileSync`) | Konsistensi task↔log terjamin tanpa lock | Block event loop ~ms, tak cocok skala besar |
-| Idempotent via early-return, bukan Idempotency-Key | Cukup untuk domain 4 status | Didokumentasikan sebagai batasan sadar |
-| Kanban kolom + tombol, tanpa drag-and-drop | Familiar ala Trello tanpa library & edge case baru | Sengaja ditolak; lihat ADR-007 |
-| Tanpa ORM/auth/test-framework | Domain kecil; explicit code lebih mudah dijelaskan | Validasi ditulis manual |
+| `server/` | `npm run dev` | Start API with `tsx` (hot reload), port 3001 |
+| `server/` | `npm run build` | Type-check + emit to `dist/` |
+| `server/` | `npm start` | Run compiled output (`node dist/index.js`) |
+| `client/` | `npm run dev` | Start Vite dev server, port 5173 |
+| `client/` | `npm run build` | Type-check (`tsc --noEmit`) + production bundle |
 
-## Jika Ada Waktu Lebih
+## API reference
 
-1. Migrasi persistence ke SQLite (cukup ganti `store.ts`, kontrak API tetap).
-2. Soft-delete task agar log task terhapus tetap bisa diaudit.
-3. Test otomatis untuk 12 edge case di `docs/06-EDGE-CASES-TESTPLAN.md`.
-4. Pagination `GET /tasks` + filter by status.
+Base URL: `http://localhost:3001`. All timestamps are ISO-8601 UTC from the server.
 
-## Jawaban Pertanyaan Wajib
+| Method & path | Body | Success | Errors |
+|---|---|---|---|
+| `GET /tasks` | — | `200` task array (newest first) | — |
+| `POST /tasks` | `{ "title": "…", "description?": "…" }` | `201` new task (`status: "to_do"`) | `400` title missing / empty / > 200 chars |
+| `PUT /tasks/:id/status` | `{ "toStatus": "pending", "actor": "john.doe" }` | `200` `{ task, audit }` · same-status → `200` `{ task, audit: null, idempotent: true }` | `404` task missing · `400` unknown status / unknown actor / skip or backward transition |
+| `DELETE /tasks/:id` | — | `200` `{ deleted: id }` (logs retained on disk) | `404` task missing |
+| `GET /tasks/:id/audit-logs` | — | `200` log array, oldest first | `404` task missing |
 
-### 1. Bagaimana memastikan audit log tidak ter-modifikasi?
+Example audit entry:
 
-Tiga lapis: (a) **by construction** — tidak ada route PUT/DELETE/PATCH untuk log, jadi tidak ada jalan API untuk mengubahnya; (b) **single writer** — satu-satunya kode yang menyentuh array `logs` adalah `applyStatusChange` (append) dan `load/save`; bisa diverifikasi dengan `grep`; (c) **server timestamp** — client tidak mengirim waktu, jadi urutan tidak bisa dipalsukan. Batasan jujur: file JSON masih bisa diedit manual di disk — untuk produksi perlu DB dengan permission read-only + hash chain.
+```json
+{
+  "id": "a_xyz",
+  "taskId": "t_abc",
+  "actor": "john.doe",
+  "fromStatus": "pending",
+  "toStatus": "in_progress",
+  "timestamp": "2025-01-01T10:00:00.000Z"
+}
+```
 
-### 2. Bagian paling berisiko jika digunakan banyak user?
+Actors (hardcoded per spec, chosen via dropdown): `john.doe`, `jane.smith`, `admin`.
 
-`store.ts` — baca-tulis file tanpa lock. Dua PUT bersamaan bisa menimpa (lost update) atau bikin urutan log salah. Berikutnya: tidak ada auth, jadi `actor` hanya klaim dari client.
+## Status rules
 
-### 3. Jika berkembang besar, apa yang di-refactor pertama dan kenapa?
+```
+to_do ──▶ pending ──▶ in_progress ──▶ done
+```
 
-Persistence (`store.ts` → SQLite/Postgres dengan transaksi). Karena itu satu-satunya bagian yang asumsi single-writer-nya jebol duluan saat user bertambah, sementara interface-nya sudah terisolasi sehingga API dan UI tidak perlu berubah.
+- Exactly **one step forward**; skip or backward → `400` with the allowed next status in the message.
+- Same-status update → `200`, **no new log** (idempotent, safe for retries / double-clicks).
+- Create does **not** write a log (only status changes do — see `docs/05-ADRS.md`, ADR-002).
+- Delete removes the task but **retains** its log rows on disk (ADR-003).
 
-### 4. Bagian mana yang dibantu AI dan bagaimana validasinya?
+## Configuration
 
-AI membantu scaffolding awal (struktur folder, boilerplate Vite/Express) dan draf dokumen. Semua logika domain (state machine, idempotency, immutability) saya tulis dan verifikasi sendiri dengan: `tsc --noEmit` bersih di kedua paket, 8 skenario curl (create, skip-ditolak, transisi valid, idempotent tanpa log, actor-salah ditolak, log kronologis), dan `vite build` sukses. Saya memahami dan bisa menjelaskan seluruh solusi ini.
+| Item | Value | Where to change |
+|---|---|---|
+| Backend port | `3001` | `server/src/index.ts` (`PORT`) |
+| Frontend port | `5173` | `client/vite.config.ts` + run flag |
+| CORS origins | `http://localhost:5173`, `http://127.0.0.1:5173` | `server/src/index.ts` |
+| Actors | `john.doe`, `jane.smith`, `admin` | `server/src/types.ts` (`ACTORS`) + `client/src/types.ts` |
+| Data file | `server/db.json` | `server/src/store.ts` (`DB_FILE`) |
+
+## Smoke test (3 minutes)
+
+```bash
+# create
+curl -X POST http://localhost:3001/tasks -H "Content-Type: application/json" \
+  -d '{"title":"Prepare Invoice"}'
+# → copy the id, then (replace $ID):
+
+# skip must fail
+curl -X PUT http://localhost:3001/tasks/$ID/status -H "Content-Type: application/json" \
+  -d '{"toStatus":"done","actor":"john.doe"}'                     # expect 400
+
+# valid step
+curl -X PUT http://localhost:3001/tasks/$ID/status -H "Content-Type: application/json" \
+  -d '{"toStatus":"pending","actor":"john.doe"}'                  # expect 200 + audit
+
+# idempotent retry — no new log
+curl -X PUT http://localhost:3001/tasks/$ID/status -H "Content-Type: application/json" \
+  -d '{"toStatus":"pending","actor":"john.doe"}'                  # expect idempotent:true
+
+# history — expect 1 entry, chronological
+curl http://localhost:3001/tasks/$ID/audit-logs
+```
+
+Full 12-case plan: `docs/06-EDGE-CASES-TESTPLAN.md`.
+
+## Troubleshooting
+
+| Symptom | Cause → fix |
+|---|---|
+| `Failed to fetch` in the browser | You opened the UI on a host not in CORS origins — use `http://localhost:5173` or `http://127.0.0.1:5173` |
+| `EADDRINUSE :::3001` | A previous server is still running — stop the old terminal or kill the PID holding port 3001 |
+| Empty list after restart | Normal if `server/db.json` was deleted; otherwise check the backend terminal for `[store] db.json unreadable` |
+| `title is required` on Add | Title is mandatory, 1–200 chars; description is optional |
+
+## Assumptions
+
+1. **Create does not write a log** — only status changes do (ADR-002; a `CREATE` log could be added without breaking the schema).
+2. **Delete retains log rows** on disk but no longer exposes them via the API (ADR-003).
+3. **Actor = hardcoded dropdown**, not auth — per "no overengineering".
+4. **Timestamps always come from the server**; the client cannot send one.
+5. **Single-user/demo load** — a JSON file suffices because the spec allows it.
+
+## Trade-offs
+
+| Decision | Why | Cost |
+|---|---|---|
+| JSON file, not a DB | Zero setup, reviewer runs in < 5 min | No concurrent-write safety |
+| Synchronous `writeFileSync` | Task + log persist atomically, no lock needed | Blocks the loop ~ms; unsuitable at scale |
+| Idempotency via early-return | Enough for a 4-status domain | Documented limit vs. `Idempotency-Key` |
+| Kanban columns + buttons, no drag-and-drop | Familiar Trello feel, zero new deps/edge cases | Less "wow" (deliberate; see ADR-007) |
+| No ORM / auth / test framework | Small domain; explicit code is easier to explain | Manual validation |
+
+## If there were more time
+
+1. Migrate persistence to SQLite (only `store.ts` changes; API/UI untouched).
+2. Soft-delete tasks so deleted-task logs stay auditable.
+3. Automated tests for the 12 edge cases.
+4. Pagination + status filter on `GET /tasks`.
+
+## Required answers
+
+### 1. How do you ensure the audit log cannot be modified?
+
+Three layers: **(a) by construction** — there is no PUT/PATCH/DELETE route for logs, so no API path can change them; **(b) single writer** — the only code touching the `logs` array is `applyStatusChange` (append) plus `load`/`save` (verify with `grep -rn "logs" server/src`); **(c) server timestamps** — the client never sends time, so ordering cannot be forged. Honest limit: the JSON file itself is editable on disk — production would need a DB with read-only log permissions + a hash chain.
+
+### 2. What is riskiest with many concurrent users?
+
+`store.ts` — file read/write with no lock. Two simultaneous PUTs can overwrite each other (lost update) or misorder logs. Next: no real auth, so `actor` is only a claim.
+
+### 3. What would you refactor first as the system grows, and why?
+
+Persistence (`store.ts` → SQLite/Postgres with transactions) — it is the only part whose single-writer assumption breaks first under load, and its interface is already isolated so the API and UI would not change.
+
+### 4. Which parts did AI help with, and how did you validate them?
+
+AI helped with initial scaffolding (folder layout, Vite/Express boilerplate) and document drafts. All domain logic (state machine, idempotency, immutability) was verified independently: clean `tsc --noEmit` in both packages, 8 curl scenarios (create, skip-rejected, valid transition, idempotent-no-log, bad-actor rejected, chronological logs), and a successful `vite build`. I understand and can explain the entire solution.
